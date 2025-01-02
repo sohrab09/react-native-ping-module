@@ -1,4 +1,4 @@
-package com.udoynet
+package com.projectname // Replace with your project name
 
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule

@@ -1,230 +1,267 @@
-Here's a detailed `README.md` template you can use for your **react-native-ping-module**:
+Here is the complete `README.md` file that provides detailed instructions for installing, setting up, and using your package:
 
----
+```markdown
+# Ping Module for React Native
 
-# React Native Ping Module
-
-A simple React Native module that allows you to ping an IP address and retrieve the results directly within your mobile app. Built with Kotlin for Android.
-
-## Table of Contents
-
-- [React Native Ping Module](#react-native-ping-module)
-  - [Table of Contents](#table-of-contents)
-  - [Installation](#installation)
-  - [Usage](#usage)
-    - [Example](#example)
-    - [Method Documentation](#method-documentation)
-      - [`PingModule.ping(host: string)`](#pingmodulepinghost-string)
-  - [Android Permissions](#android-permissions)
-  - [Troubleshooting](#troubleshooting)
-  - [Contributing](#contributing)
-  - [License](#license)
+This is a custom React Native module that allows you to ping an IP address or host from your mobile app. It leverages the native Android functionality to perform the ping operation and return the results to the JavaScript code.
 
 ## Installation
 
-1. **Install the package**:
-   
-   You can install the package via npm or yarn.
+### 1. Install the package
 
-   ```bash
-   npm install react-native-ping-module --save
-   ```
+You can install the package using `npm` or `yarn`:
 
-   Or with Yarn:
+```bash
+npm install ping-module --save
+# OR
+yarn add ping-module
+```
 
-   ```bash
-   yarn add react-native-ping-module
-   ```
+### 2. Link Native Modules
 
-2. **Link the package**:
+For React Native versions 0.60 and above, linking of native modules is done automatically using auto-linking. However, if you're using an older version, you may need to link manually:
 
-   For React Native 0.59 and earlier, you need to link the native module:
+```bash
+react-native link ping-module
+```
 
-   ```bash
-   react-native link react-native-ping-module
-   ```
+## Android Setup
 
-   For React Native 0.60 and above, the linking process is automatic via **autolinking**, so this step is not required.
+### 3. Modify `AndroidManifest.xml`
+
+Add the required permissions in your `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+<uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+```
+
+### 4. Modify `MainApplication.java` or `MainApplication.kt`
+
+Make sure your `MainApplication.java` (or `MainApplication.kt`) is correctly set up to include the native module. Below is the `MainApplication.kt` file.
+
+In `android/src/main/java/com/projectname/MainApplication.kt`, use the following code:
+
+```kotlin
+package com.projectname // Replace with your project name
+
+import android.app.Application
+import com.facebook.react.PackageList
+import com.facebook.react.ReactApplication
+import com.facebook.react.ReactHost
+import com.facebook.react.ReactNativeHost
+import com.facebook.react.ReactPackage
+import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.load
+import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.facebook.react.defaults.DefaultReactNativeHost
+import com.facebook.react.soloader.OpenSourceMergedSoMapping
+import com.facebook.soloader.SoLoader
+import com.projectname.PingModule // Replace with your module name
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class MainApplication : Application(), ReactApplication {
+
+  override val reactNativeHost: ReactNativeHost =
+      object : DefaultReactNativeHost(this) {
+        override fun getPackages(): List<ReactPackage> =
+            PackageList(this).packages.apply {
+              // Add PingModule manually
+              add(
+                  object : ReactPackage {
+                      override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
+                          return listOf(PingModule(reactContext))
+                      }
+
+                      override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {
+                          return emptyList()
+                      }
+                  }
+              )
+            }
+
+        override fun getJSMainModuleName(): String = "index"
+
+        override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
+
+        override val isNewArchEnabled: Boolean = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED
+        override val isHermesEnabled: Boolean = BuildConfig.IS_HERMES_ENABLED
+      }
+
+  override val reactHost: ReactHost
+    get() = getDefaultReactHost(applicationContext, reactNativeHost)
+
+  override fun onCreate() {
+    super.onCreate()
+    SoLoader.init(this, OpenSourceMergedSoMapping)
+    if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
+      // If you opted-in for the New Architecture, we load the native entry point for this app.
+      load()
+    }
+  }
+}
+```
+
+### 5. Create the `PingModule.kt` File
+
+Create a new Kotlin file `PingModule.kt` in the directory `android/src/main/java/com/projectname/` and add the following code:
+
+```kotlin
+package com.projectname // Replace with your project name
+
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+import com.facebook.react.bridge.Promise
+import java.io.BufferedReader
+import java.io.InputStreamReader
+
+class PingModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+
+    override fun getName(): String {
+        return "PingModule"
+    }
+
+    @ReactMethod
+    fun ping(host: String, promise: Promise) {
+        try {
+            // Execute the ping command
+            val process = Runtime.getRuntime().exec("ping -c 4 $host")
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val outputLines = mutableListOf<String>()
+            var line: String?
+
+            // Read the output of the ping command
+            while (reader.readLine().also { line = it } != null) {
+                outputLines.add(line!!)
+            }
+            reader.close()
+            process.waitFor()
+
+            // Format the output
+            val formattedOutput = formatPingOutput(outputLines, host)
+            promise.resolve(formattedOutput)
+        } catch (e: Exception) {
+            promise.reject("Ping Error", e)
+        }
+    }
+
+    private fun formatPingOutput(outputLines: List<String>, host: String): String {
+        val result = StringBuilder()
+        result.append("ping $host\n\n")
+
+        val replyLines = outputLines.filter { it.contains("bytes from") || it.contains("icmp_seq") }
+        if (replyLines.isNotEmpty()) {
+            result.append("Pinging $host with 32 bytes of data:\n")
+            replyLines.forEach { line ->
+                result.append(formatReplyLine(line)).append("\n")
+            }
+        }
+
+        val statisticsLine = outputLines.find { it.contains("packets transmitted") }
+        statisticsLine?.let {
+            result.append("\nPing statistics for $host:\n")
+            result.append(formatStatisticsLine(it)).append("\n")
+        }
+
+        val rttLine = outputLines.find { it.contains("rtt") }
+        rttLine?.let {
+            result.append("Approximate round trip times in milli-seconds:\n")
+            result.append(formatRTTLine(it))
+        }
+
+        return result.toString()
+    }
+
+    private fun formatReplyLine(line: String): String {
+        // Example raw reply: "64 bytes from 8.8.8.8: icmp_seq=1 ttl=109 time=49 ms"
+        val regex = Regex("bytes from ([^:]+):.*time=([0-9.]+) ms")
+        val match = regex.find(line)
+        return if (match != null) {
+            val ip = match.groupValues[1]
+            val time = match.groupValues[2]
+            "Reply from $ip: bytes=32 time=${time}ms TTL=109"
+        } else {
+            line
+        }
+    }
+
+    private fun formatStatisticsLine(line: String): String {
+        // Example raw line: "4 packets transmitted, 4 received, 0% packet loss, time 3002ms"
+        val regex = Regex("(\\d+) packets transmitted, (\\d+) received, (\\d+)% packet loss")
+        val match = regex.find(line)
+        return if (match != null) {
+            val sent = match.groupValues[1]
+            val received = match.groupValues[2]
+            val loss = match.groupValues[3]
+            "    Packets: Sent = $sent, Received = $received, Lost = ${sent.toInt() - received.toInt()} ($loss% loss)"
+        } else {
+            line
+        }
+    }
+
+    private fun formatRTTLine(line: String): String {
+        // Example raw line: "rtt min/avg/max/mdev = 49.163/49.567/50.031/0.370 ms"
+        val regex = Regex("rtt min/avg/max/mdev = ([0-9.]+)/([0-9.]+)/([0-9.]+)/([0-9.]+) ms")
+        val match = regex.find(line)
+        return if (match != null) {
+            val min = match.groupValues[1]
+            val max = match.groupValues[3]
+            val avg = match.groupValues[2]
+            "    Minimum = ${min}ms, Maximum = ${max}ms, Average = ${avg}ms"
+        } else {
+            line
+        }
+    }
+}
+```
 
 ## Usage
 
-To use the ping module, simply import it into your JavaScript file and call the `ping` function with the IP address you wish to ping.
+### 6. Using the Module in JavaScript
 
-### Example
-
-Here’s how you can use the `ping` function in your React Native app:
+Once you have installed and linked the module, you can now use the `PingModule` to ping an IP address or domain.
 
 ```javascript
-import React, { useState } from 'react';
-import { NativeModules, Text, Button, ScrollView, TextInput, StyleSheet, ActivityIndicator, View } from 'react-native';
+import { NativeModules } from 'react-native';
 
 const { PingModule } = NativeModules;
 
-const PingInfo = () => {
-  const [pingResult, setPingResult] = useState<string[]>([]); // Store the output lines
-  const [loading, setLoading] = useState(false); // Loading state
-  const [data, setData] = useState<string | null>(null);
-
-  const handlePing = async () => {
-    setLoading(true); // Start loading
-    setPingResult([]); // Clear previous results
-
-    try {
-      // Call the ping method from the native module and await the result
-      const result: string = await PingModule.ping(data);
-
-      // Split the result into lines and show each line one by one
-      const lines = result.split('\n');
-      lines.forEach((line, index) => {
-        setTimeout(() => {
-          setPingResult(prevResult => [...prevResult, line]);
-        }, index * 500); // Add a delay to simulate line-by-line execution
-      });
-    } catch (error) {
-      console.error('Ping error:', error);
-      if (error instanceof Error) {
-        setPingResult([error.message || 'Ping failed.']); // Set the error message if ping fails
-      } else {
-        setPingResult(['Ping failed.']); // Set a generic error message if error is not an instance of Error
-      }
-    }
-
-    setLoading(false); // Stop loading once the ping operation is done
-  };
-
-  return (
-    <View style={styles.pingContainer}>
-      <Text style={styles.ping}>Ping Component IP</Text>
-      <TextInput
-        style={styles.input}
-        onChangeText={text => setData(text)}
-        value={data ? data : ''}
-        placeholder="Enter IP address"
-      />
-      <Button title="Ping" onPress={handlePing} />
-      <>
-        {loading ? (
-          <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-        ) : (
-          <ScrollView style={styles.scroll}>
-            {pingResult.map((line, index) => (
-              <Text key={index}>{line}</Text>
-            ))}
-          </ScrollView>
-        )}
-      </>
-    </View>
-  );
+const pingHost = async (host) => {
+  try {
+    const result = await PingModule.ping(host);
+    console.log(result);
+  } catch (error) {
+    console.error('Ping failed:', error);
+  }
 };
-
-const styles = StyleSheet.create({
-  pingContainer: {
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 10,
-    padding: 10,
-    backgroundColor: '#f9f9f9',
-  },
-  ping: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginVertical: 10,
-    color: 'skyblue',
-  },
-  input: {
-    width: '100%',
-    height: 40,
-    borderColor: 'gray',
-    borderWidth: 0.5,
-    marginVertical: 10,
-    paddingLeft: 10,
-    borderRadius: 5,
-  },
-  scroll: {
-    width: '100%',
-    marginVertical: 10,
-    marginTop: 20,
-  },
-  loader: {
-    marginTop: 20,
-  },
-});
-
-export default PingInfo;
 ```
 
-### Method Documentation
+Call the `pingHost` function with the host or IP address you wish to ping:
 
-#### `PingModule.ping(host: string)`
-
-- **Arguments**:
-  - `host`: The IP address or domain to ping (e.g., `8.8.8.8` or `google.com`).
-  
-- **Returns**:
-  - Returns a promise with the formatted output from the ping operation.
-  - The result includes information such as response time and packet loss.
-
----
-
-## Android Permissions
-
-To allow the app to perform network operations like pinging, ensure the following permissions are added to your `AndroidManifest.xml` file:
-
-```xml
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <uses-permission android:name="android.permission.INTERNET" />
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-  <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-  <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-  <application
-    android:name=".MainApplication"
-    android:label="@string/app_name"
-    android:icon="@mipmap/ic_launcher"
-    android:roundIcon="@mipmap/ic_launcher_round"
-    android:allowBackup="false"
-    android:theme="@style/AppTheme"
-    android:supportsRtl="true">
-    <activity
-      android:name=".MainActivity"
-      android:label="@string/app_name"
-      android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
-      android:launchMode="singleTask"
-      android:windowSoftInputMode="adjustResize"
-      android:exported="true">
-      <intent-filter>
-        <action android:name="android.intent.action.MAIN" />
-        <category android:name="android.intent.category.LAUNCHER" />
-      </intent-filter>
-    </activity>
-  </application>
-</manifest>
+```javascript
+pingHost('8.8.8.8'); // Ping Google's public DNS server
 ```
-
----
 
 ## Troubleshooting
 
-- **Issue**: If the `ping` method returns an error, make sure you have added the required permissions in `AndroidManifest.xml` and ensure your app has proper network access.
-- **Issue**: If you see a build error related to Kotlin, make sure your project is properly configured to use Kotlin as mentioned earlier.
-
----
-
-## Contributing
-
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/feature-name`).
-3. Make your changes.
-4. Commit your changes (`git commit -am 'Add new feature'`).
-5. Push to the branch (`git push origin feature/feature-name`).
-6. Create a new Pull Request.
-
----
+- **Error: `Ping Error`**: Ensure that the app has the necessary permissions and the device is connected to the internet.
+- **No results shown**: Check if the device is connected to a Wi-Fi network and if the `ping` command is being executed correctly.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
+```
 
----
+This README provides instructions on:
+
+1. **Installation**: How to install the package and link it.
+2. **Android Setup**: How to configure permissions and set up the native module in `MainApplication.kt`.
+3. **Usage**: Example of how to call the `ping` method from JavaScript.
+4. **Troubleshooting**: Common issues and how to resolve them.
+
+Feel free to modify the instructions according to your package's specific needs. Let me know if you need more adjustments!
