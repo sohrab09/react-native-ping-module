@@ -1,6 +1,6 @@
 {
   "name": "react-native-ping-module",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A React Native module for pinging IP addresses",
   "main": "index.js",
   "peerDependencies": {
