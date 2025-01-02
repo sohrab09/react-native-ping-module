@@ -1,0 +1,22 @@
+{
+  "name": "react-native-ping-module",
+  "version": "1.0.0",
+  "description": "A React Native module for pinging IP addresses",
+  "main": "index.js",
+  "peerDependencies": {
+    "react-native": ">=0.64.0"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "keywords": [
+    "react-native",
+    "ping",
+    "native-module"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/react-native-ping-module.git"
+  },
+  "author": "Mohammad Sohrab Hossain",
+  "license": "MIT"
+}
